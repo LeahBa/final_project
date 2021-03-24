@@ -1,0 +1,38 @@
+node("linux1"){
+        stage("Checkout  Kalandula Repo") {
+            git branch: 'main', changelog: false, credentialsId: '94326', poll: false, url: 'https://github.com/MaximMandelblum/kandula_assignment.git'
+    }
+        stage('Building docker image') {
+            customImage = docker.build("my_image_build-${env.BUILD_ID}")
+           
+        }
+        
+        stage('Run docker for test') {
+            sh "docker  run -d --name ${env.BUILD_ID}  -p 5000:5000 ${customImage.imageName()}:latest"
+        }
+        
+        stage('Test Docker Image') {
+             
+             sh "echo 200"
+             sh "docker ps -aq | xargs docker stop"
+           
+        }
+        
+        stage('Deploy Image to docker hub') {
+            
+            withDockerRegistry(credentialsId: 'dockerhub.max',url:'') {
+                sh "docker tag ${customImage.imageName()} 6037159/jenkins-test:${customImage.imageName()}"
+                sh "docker push 6037159/jenkins-test:${customImage.imageName()}"
+          }
+        stage("Get the App Yaml file ") {
+            git 'https://github.com/MaximMandelblum/Final_project.git'
+        }
+          
+        stage('Deploy pod'){
+            
+            kubernetesDeploy configs: 'kalandula_app.yaml,kalandula_lb.yaml', kubeConfig: [path: ''], kubeconfigId: 'kube', secretName: '', ssh: [sshCredentialsId: '*', sshServer: ''], textCredentials: [certificateAuthorityData: '', clientCertificateData: '', clientKeyData: '', serverUrl: 'https://']
+    
+        }
+        
+        }
+    }
